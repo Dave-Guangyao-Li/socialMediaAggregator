@@ -1,0 +1,280 @@
+# Next.js Best Practices
+
+## Project Structure
+
+1. **Use the App Router for new projects**
+   - Organize routes using the app directory structure
+   - Take advantage of React Server Components where appropriate
+
+2. **Follow folder conventions**
+   ```
+   app/
+     layout.tsx          # Root layout
+     page.tsx            # Home page
+     (auth)/             # Group for authentication routes
+       login/page.tsx    # Login page
+       signup/page.tsx   # Signup page
+     api/                # API routes
+     components/         # Shared components
+     lib/                # Utility functions
+     hooks/              # Custom hooks
+     styles/             # Global styles
+   ```
+
+3. **Use the `public` directory for static assets**
+   - Store images, fonts, and other static files here
+   - Reference as `/image.jpg` in code
+
+## Routing
+
+1. **Use nested routes for related functionality**
+   ```
+   app/
+     dashboard/
+       page.tsx          # /dashboard
+       settings/
+         page.tsx        # /dashboard/settings
+         account/
+           page.tsx      # /dashboard/settings/account
+   ```
+
+2. **Use dynamic routes for variable paths**
+   ```
+   app/
+     posts/
+       [id]/             # Dynamic route
+         page.tsx        # /posts/123
+   ```
+
+3. **Implement catch-all routes for flexible matching**
+   ```
+   app/
+     docs/
+       [...slug]/        # Catch-all route
+         page.tsx        # /docs/getting-started/installation
+   ```
+
+## Data Fetching
+
+1. **Use React Server Components for data fetching when possible**
+   ```tsx
+   // ✅ Good (in a Server Component)
+   async function Page() {
+     const data = await fetchData();
+     return <MyComponent data={data} />;
+   }
+   ```
+
+2. **Use SWR or React Query for client-side data fetching**
+   ```tsx
+   // ✅ Good (in a Client Component)
+   'use client';
+   
+   import { useSWR } from 'swr';
+   
+   function UserProfile({ userId }) {
+     const { data, error, isLoading } = useSWR(`/api/users/${userId}`, fetcher);
+     
+     if (isLoading) return <div>Loading...</div>;
+     if (error) return <div>Error loading user data</div>;
+     return <div>{data.name}</div>;
+   }
+   ```
+
+3. **Implement ISR (Incremental Static Regeneration) for dynamic content that doesn't change frequently**
+   ```tsx
+   // For Pages Router (in pages directory)
+   export async function getStaticProps() {
+     return {
+       props: {
+         data: await fetchData(),
+       },
+       revalidate: 60, // Regenerate page after 60 seconds
+     };
+   }
+   ```
+
+## Performance Optimization
+
+1. **Optimize images with next/image**
+   ```tsx
+   // ✅ Good
+   import Image from 'next/image';
+   
+   function Avatar() {
+     return (
+       <Image
+         src="/profile.jpg"
+         alt="User avatar"
+         width={64}
+         height={64}
+         priority={true} // For LCP images
+       />
+     );
+   }
+   ```
+
+2. **Use React.lazy and Suspense for code splitting**
+   ```tsx
+   // ✅ Good
+   'use client';
+   
+   import React, { Suspense, lazy } from 'react';
+   
+   const HeavyComponent = lazy(() => import('@/components/HeavyComponent'));
+   
+   function MyPage() {
+     return (
+       <Suspense fallback={<div>Loading...</div>}>
+         <HeavyComponent />
+       </Suspense>
+     );
+   }
+   ```
+
+3. **Implement proper caching strategies**
+   ```tsx
+   // ✅ Good - in a route handler
+   export async function GET() {
+     return Response.json(data, {
+       headers: {
+         'Cache-Control': 'max-age=3600, s-maxage=60, stale-while-revalidate=3600',
+       },
+     });
+   }
+   ```
+
+## State Management
+
+1. **Use React Context for global state in smaller applications**
+   ```tsx
+   // ✅ Good
+   'use client';
+   
+   import { createContext, useContext, useState } from 'react';
+   
+   const ThemeContext = createContext();
+   
+   export function ThemeProvider({ children }) {
+     const [theme, setTheme] = useState('light');
+     return (
+       <ThemeContext.Provider value={{ theme, setTheme }}>
+         {children}
+       </ThemeContext.Provider>
+     );
+   }
+   
+   export function useTheme() {
+     return useContext(ThemeContext);
+   }
+   ```
+
+2. **Use Zustand for more complex state management**
+   ```tsx
+   // ✅ Good
+   'use client';
+   
+   import { create } from 'zustand';
+   
+   const useStore = create((set) => ({
+     count: 0,
+     increment: () => set((state) => ({ count: state.count + 1 })),
+     decrement: () => set((state) => ({ count: state.count - 1 })),
+   }));
+   ```
+
+## SEO and Metadata
+
+1. **Use Metadata API for SEO optimization**
+   ```tsx
+   // ✅ Good - in layout.tsx or page.tsx
+   export const metadata = {
+     title: 'My App',
+     description: 'This is my Next.js application',
+     openGraph: {
+       title: 'My App',
+       description: 'This is my Next.js application',
+       images: ['/og-image.jpg'],
+     },
+   };
+   ```
+
+2. **Implement dynamic metadata based on page content**
+   ```tsx
+   // ✅ Good
+   export async function generateMetadata({ params }) {
+     const product = await fetchProduct(params.id);
+     
+     return {
+       title: product.name,
+       description: product.description,
+     };
+   }
+   ```
+
+## Error Handling
+
+1. **Implement error boundaries for client components**
+   ```tsx
+   // ✅ Good
+   'use client';
+   
+   import { ErrorBoundary } from 'react-error-boundary';
+   
+   function MyPage() {
+     return (
+       <ErrorBoundary fallback={<div>Something went wrong</div>}>
+         <MyComponent />
+       </ErrorBoundary>
+     );
+   }
+   ```
+
+2. **Create custom error pages**
+   ```tsx
+   // ✅ Good - in app/error.tsx (for app router)
+   'use client';
+   
+   export default function Error({ error, reset }) {
+     return (
+       <div>
+         <h2>Something went wrong!</h2>
+         <button onClick={() => reset()}>Try again</button>
+       </div>
+     );
+   }
+   ```
+
+## Accessibility
+
+1. **Ensure proper heading hierarchy**
+   ```tsx
+   // ✅ Good
+   <h1>Page Title</h1>
+   <section>
+     <h2>Section Title</h2>
+     <h3>Subsection Title</h3>
+   </section>
+   ```
+
+2. **Provide alt text for images**
+   ```tsx
+   // ✅ Good
+   <Image src="/image.jpg" alt="Descriptive text" width={200} height={150} />
+   ```
+
+3. **Use semantic HTML elements**
+   ```tsx
+   // ✅ Good
+   <main>
+     <article>
+       <header>
+         <h1>Article Title</h1>
+       </header>
+       <p>Article content...</p>
+       <footer>
+         <p>Author: John Doe</p>
+       </footer>
+     </article>
+   </main>
+   ``` 
